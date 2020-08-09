@@ -9,6 +9,8 @@ fn main() {
 fn build_covid_schema() -> Schema {
     let mut schema_builder = Schema::builder();
     schema_builder.add_text_field("title", TEXT | STORED);
-
-    todo!()
+    schema_builder.add_text_field("author", TEXT);
+    schema_builder.add_text_field("paper_id", TEXT | STORED);
+    schema_builder.add_text_field("text", TEXT);
+    schema_builder.build()
 }
