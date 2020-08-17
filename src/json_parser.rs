@@ -9,31 +9,31 @@ use tantivy::doc;
 use tantivy::schema::Schema;
 use tantivy::Document;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct PaperStruct {
     paper_id: String,
     metadata: Metadata,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct Metadata {
     title: String,
     authors: Vec<Author>,
     #[serde(rename = "abstract")]
-    paper_abstract: Vec<Paragraph>,
+    paper_abstract: Option<Vec<Paragraph>>,
     body_text: Vec<Paragraph>,
     // TODO: Investigate whether adding biblio metadata could be valuable here, potentially for
     // ranking?
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct Author {
     first: String,
     middle: Vec<String>,
     last: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct Paragraph {
     text: String,
     section: String,
