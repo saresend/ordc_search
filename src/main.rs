@@ -34,12 +34,12 @@ fn commit_corpus(
         .try_into()?)
 }
 
-fn build_and_commit_corpus(scheme: &Schema) -> Result<IndexWriter, Error> {
+fn build_and_commit_corpus(scheme: &Schema) -> Result<IndexReader, Error> {
     let index_path = PathBuf::from(format!("{}/ordc_corpus", DIR_PREFIX));
     let index = Index::create_in_dir(&index_path, scheme.clone())?;
     let mut writer = index.writer(100_000_000)?;
-    commit_corpus(index_path, &mut writer, scheme, &index);
-    Ok(writer)
+    let reader = commit_corpus(index_path, &mut writer, scheme, &index)?;
+    Ok(reader)
 }
 
 fn build_covid_schema() -> Schema {
