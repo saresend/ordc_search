@@ -2,29 +2,43 @@ use failure::Error;
 use std::path::PathBuf;
 use tantivy::schema::*;
 use tantivy::Index;
+use tantivy::IndexReader;
 use tantivy::IndexWriter;
-use tantivy::Searcher;
+use tantivy::ReloadPolicy;
 const DIR_PREFIX: &str = "/media/saresend/81e4a1e1-4190-4fbf-bc60-f287f3d935cc";
 
 mod json_parser;
 
 fn main() {
     let schema = build_covid_schema();
-    let index = build_corpus(schema).expect("Failed to build corpus");
-    let searcher = commit_corpus(
-        PathBuf::from(format!("{}/covid-19-dataset", DIR_PREFIX)),
-        &index,
-    );
+    let index = build_and_commit_corpus(&schema).expect("Failed to build corpus");
 }
 
-fn commit_corpus(path: PathBuf, index: &IndexWriter) -> Result<Searcher, Error> {
-    todo!()
+fn commit_corpus(
+    path: PathBuf,
+    index: &mut IndexWriter,
+    schema: &Schema,
+    main_index: &Index,
+) -> Result<IndexReader, Error> {
+    let deserializer = json_parser::get_stream_deserializer(&path)?;
+    for paper in deserializer {
+        let documents = paper?.convert_to_doc(schema);
+        for doc in documents {
+            index.add_document(doc);
+        }
+    }
+    index.commit()?;
+    Ok(main_index
+        .reader_builder()
+        .reload_policy(ReloadPolicy::OnCommit)
+        .try_into()?)
 }
 
-fn build_corpus(scheme: Schema) -> Result<IndexWriter, Error> {
+fn build_and_commit_corpus(scheme: &Schema) -> Result<IndexWriter, Error> {
     let index_path = PathBuf::from(format!("{}/ordc_corpus", DIR_PREFIX));
-    let index = Index::create_in_dir(index_path, scheme.clone())?;
-    let writer = index.writer(100_000_000)?;
+    let index = Index::create_in_dir(&index_path, scheme.clone())?;
+    let mut writer = index.writer(100_000_000)?;
+    commit_corpus(index_path, &mut writer, scheme, &index);
     Ok(writer)
 }
 
