@@ -13,15 +13,15 @@ use tantivy::Document;
 pub struct PaperStruct {
     paper_id: String,
     metadata: Metadata,
+    #[serde(rename = "abstract")]
+    paper_abstract: Option<Vec<Paragraph>>,
+    body_text: Vec<Paragraph>,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Metadata {
     title: String,
     authors: Vec<Author>,
-    #[serde(rename = "abstract")]
-    paper_abstract: Option<Vec<Paragraph>>,
-    body_text: Vec<Paragraph>,
     // TODO: Investigate whether adding biblio metadata could be valuable here, potentially for
     // ranking?
 }
@@ -49,7 +49,7 @@ impl PaperStruct {
         let author = schema.get_field("author").unwrap();
         let paper_id = schema.get_field("paper_id").unwrap();
         let text = schema.get_field("text").unwrap();
-        let body_text = mem::replace(&mut self.metadata.body_text, vec![]);
+        let body_text = mem::replace(&mut self.body_text, vec![]);
         body_text
             .iter()
             .map(move |pgraph| {
