@@ -14,13 +14,13 @@ pub struct PaperStruct {
     paper_id: String,
     metadata: Metadata,
     #[serde(rename = "abstract")]
-    paper_abstract: Option<Vec<Paragraph>>,
+    paper_abstract: Vec<Paragraph>,
     body_text: Vec<Paragraph>,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct Metadata {
-    title: String,
+    pub title: String,
     authors: Vec<Author>,
     // TODO: Investigate whether adding biblio metadata could be valuable here, potentially for
     // ranking?
