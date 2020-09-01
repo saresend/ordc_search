@@ -1,17 +1,17 @@
 use failure::Error;
+use serde::Serialize;
 use std::path::PathBuf;
+use tantivy::collector::TopDocs;
+use tantivy::query::{PhraseQuery, Query, TermQuery};
 use tantivy::schema::*;
 use tantivy::Index;
 use tantivy::IndexReader;
-use tantivy::Searcher;
-use tantivy::collector::TopDocs;
 use tantivy::IndexWriter;
-use warp::Filter;
-use warp::filters::query;
 use tantivy::ReloadPolicy;
-use tantivy::query::PhraseQuery;
-use serde::Serialize;
+use tantivy::Searcher;
+use warp::filters::query;
 use warp::reply::Reply;
+use warp::Filter;
 
 const DIR_PREFIX: &str = "/mnt/sda3";
 
@@ -27,7 +27,7 @@ async fn main() {
     run_server(index_reader, schema).await;
 }
 
-fn build_query(schema: &Schema, query: String) -> PhraseQuery {
+fn build_query(schema: &Schema, query: String) -> Box<dyn Query> {
     println!("Query: {}", query);
     let field = schema.get_field("text").unwrap();
     let mut token_vec = vec![];
@@ -35,10 +35,21 @@ fn build_query(schema: &Schema, query: String) -> PhraseQuery {
         let new_term = tantivy::Term::from_field_text(field, token);
         token_vec.push(new_term);
     }
-    PhraseQuery::new(token_vec)
+    if token_vec.len() == 1 {
+        Box::new(TermQuery::new(
+            token_vec[0].clone(),
+            tantivy::schema::IndexRecordOption::Basic,
+        ))
+    } else {
+        Box::new(PhraseQuery::new(token_vec))
+    }
 }
 
-fn serialize_documents(schema: &Schema, searcher: &Searcher, docs: &Vec<(f32, tantivy::DocAddress)>) -> Result<impl Serialize, Error> {
+fn serialize_documents(
+    schema: &Schema,
+    searcher: &Searcher,
+    docs: &Vec<(f32, tantivy::DocAddress)>,
+) -> Result<impl Serialize, Error> {
     let mut results = vec![];
     for (score, doc_address) in docs {
         let retrieved_doc = searcher.doc(*doc_address)?;
@@ -47,22 +58,24 @@ fn serialize_documents(schema: &Schema, searcher: &Searcher, docs: &Vec<(f32, ta
     Ok(results)
 }
 
-
 async fn run_server(index_reader: IndexReader, schema: Schema) {
-    let path = warp::path("query").and(query::raw()).map(move |query | {
+    let path = warp::path("query").and(query::raw()).map(move |query| {
         let searcher = index_reader.searcher();
         let query = build_query(&schema, query);
-        let top_docs = searcher.search(&query, &TopDocs::with_limit(20)); 
+        let top_docs = searcher.search(&query, &TopDocs::with_limit(20));
         match top_docs {
             Ok(top_docs) => {
                 let serializable_docs = serialize_documents(&schema, &searcher, &top_docs).unwrap();
                 warp::reply::json(&serializable_docs).into_response()
-            },
-            Err(_) => { warp::reply::with_status(warp::reply(), warp::http::StatusCode::from_u16(500).unwrap()).into_response() },
+            }
+            Err(_) => warp::reply::with_status(
+                warp::reply(),
+                warp::http::StatusCode::from_u16(500).unwrap(),
+            )
+            .into_response(),
         }
-
     });
-    warp::serve(path).run(([127,0,0,1], 8080)).await;
+    warp::serve(path).run(([127, 0, 0, 1], 8080)).await;
 }
 
 fn write_article(
